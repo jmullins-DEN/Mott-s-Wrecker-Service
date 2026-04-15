@@ -79,7 +79,7 @@ html, body { background: #0f1f3d; color: #e8edf5; font-family: 'Barlow', sans-se
 
 <div class="page">
   <div class="kpis">
-    <div class="kpi k1"><div class="klbl">Total Coached Events</div><div class="kval" id="kT">--</div><div class="ksub" id="kpiDateRange">Last <b>30 days</b></div></div>
+    <div class="kpi k1"><div class="klbl">Total Events (Period)</div><div class="kval" id="kT">--</div><div class="ksub" id="kpiDateRange">Last <b>30 days</b></div></div>
     <div class="kpi k2"><div class="klbl">Viewed</div><div class="kval" id="kU" style="font-size:44px;">--</div><div class="ksub" id="kVR">viewing rate</div></div>
     <div class="kpi k3"><div class="klbl">Avg Events / Driver</div><div class="kval" id="kA">--</div><div class="ksub" id="kAS">active drivers</div></div>
     <div class="kpi k4"><div class="klbl">Most Common Event</div><div class="kval" id="kMC" style="font-size:28px;padding-top:6px;line-height:1.2;">--</div><div class="ksub" id="kMT">--</div></div>
@@ -263,7 +263,7 @@ function render(evts){
 
   // KPI 1 — total events + coached sub
   document.getElementById('kT').textContent=evts.length;
-  document.getElementById('kpiDateRange').innerHTML='<b>'+co+'</b> coached';
+  document.getElementById('kpiDateRange').innerHTML='<b>'+co+'</b> coached &middot; <b>'+(co-uv)+'</b> viewed';
 
   // KPI 2 — viewed % big, "X of Y viewed" sub (matches Apple)
   document.getElementById('kU').textContent=vr+'%';
@@ -378,9 +378,9 @@ function saveStored(evts){
 function renderWithDateFilter(allEvts){
   var end=new Date();end.setDate(end.getDate()-3);
   var start=new Date(end);start.setDate(start.getDate()-30);
+  // Filter to the 30-day window only — coaching status filtering happens inside render()/applyFilter()
   var tr=allEvts.filter(function(e){
-    var cv=e['Converted To Coaching'];
-    return e._d&&e._d>=start&&e._d<=end&&(cv==='YES'||cv==='Yes');
+    return e._d&&e._d>=start&&e._d<=end;
   });
   allFilteredEvts=tr;
   applyFilter();
