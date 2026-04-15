@@ -44,7 +44,7 @@ html, body { background: #0f1f3d; color: #e8edf5; font-family: 'Barlow', sans-se
   .page { padding: 20px 28px; gap: 18px; max-width: 1400px; margin: 0 auto; }
   .kpis { grid-template-columns: repeat(4, 1fr); gap: 14px; }
   .kval { font-size: 48px; }
-  .charts-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
+  .charts-row { display: grid; grid-template-columns: 1fr 1.6fr; gap: 18px; }
   .bottom-row { display: grid; grid-template-columns: 1fr 1.2fr; gap: 18px; align-items: stretch; }
   .bottom-row .card { display: flex; flex-direction: column; }
   .bottom-row .card .elog { flex: 1; max-height: none; overflow-y: auto; }
@@ -79,7 +79,7 @@ html, body { background: #0f1f3d; color: #e8edf5; font-family: 'Barlow', sans-se
 
 <div class="page">
   <div class="kpis">
-    <div class="kpi k1"><div class="klbl">Total Events (Period)</div><div class="kval" id="kT">--</div><div class="ksub" id="kpiDateRange">Last <b>30 days</b></div></div>
+    <div class="kpi k1"><div class="klbl">Coached Events</div><div class="kval" id="kT">--</div><div class="ksub" id="kpiDateRange">Last <b>30 days</b></div></div>
     <div class="kpi k2"><div class="klbl">Viewed</div><div class="kval" id="kU" style="font-size:44px;">--</div><div class="ksub" id="kVR">viewing rate</div></div>
     <div class="kpi k3"><div class="klbl">Avg Events / Driver</div><div class="kval" id="kA">--</div><div class="ksub" id="kAS">active drivers</div></div>
     <div class="kpi k4"><div class="klbl">Most Common Event</div><div class="kval" id="kMC" style="font-size:28px;padding-top:6px;line-height:1.2;">--</div><div class="ksub" id="kMT">--</div></div>
@@ -88,9 +88,9 @@ html, body { background: #0f1f3d; color: #e8edf5; font-family: 'Barlow', sans-se
   <div class="card" style="padding:12px 16px;">
     <div class="filter-bar" id="filterBar">
       <span style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#7a94b4;margin-right:4px;">Filter:</span>
-      <button class="filter-btn active" data-filter="all">All Events</button>
-      <button class="filter-btn" data-filter="Coached">&#10003; Viewed</button>
-      <button class="filter-btn" data-filter="Needs Coaching">&#9888; Unviewed</button>
+      <button class="filter-btn active" data-filter="all">All Coached</button>
+      <button class="filter-btn" data-filter="Viewed">&#10003; Viewed</button>
+      <button class="filter-btn" data-filter="Unviewed">&#9888; Unviewed</button>
     </div>
   </div>
 
@@ -212,33 +212,26 @@ function drawBar(id,labels,vals){
   document.getElementById(id).innerHTML=tag('svg',attr('viewBox','0 0 '+W+' '+H)+attr('xmlns','http://www.w3.org/2000/svg')+attr('style','width:100%;display:block;'),out);
 }
 
-function drawDonut(id,labels,vals,colors){
+function drawTypeList(id,labels,vals,colors){
   var total=0;
   for(var i=0;i<vals.length;i++)total+=vals[i];
   if(!total)total=1;
-  var cx=100,cy=85,R=62,ir=38,W=200,H=170;
-  var out='';
-  var angle=-Math.PI/2;
-  for(var i=0;i<vals.length;i++){
-    var sweep=vals[i]/total*Math.PI*2,a2=angle+sweep;
-    var x1=cx+R*Math.cos(angle),y1=cy+R*Math.sin(angle);
-    var x2=cx+R*Math.cos(a2),y2=cy+R*Math.sin(a2);
-    var xi1=cx+ir*Math.cos(angle),yi1=cy+ir*Math.sin(angle);
-    var xi2=cx+ir*Math.cos(a2),yi2=cy+ir*Math.sin(a2);
-    var lg=sweep>Math.PI?1:0;
-    var d='M '+x1+' '+y1+' A '+R+' '+R+' 0 '+lg+' 1 '+x2+' '+y2+' L '+xi2+' '+yi2+' A '+ir+' '+ir+' 0 '+lg+' 0 '+xi1+' '+yi1+' Z';
-    out+=stag('path',attr('d',d)+attr('fill',colors[i])+attr('stroke','#162840')+attr('stroke-width','2'));
-    angle=a2;
+  var maxVal=vals[0]||1;
+  var html='<div style="display:flex;flex-direction:column;gap:0;">';
+  for(var i=0;i<labels.length;i++){
+    var pct=Math.round(vals[i]/total*100);
+    var barW=Math.round(vals[i]/maxVal*100);
+    html+='<div style="display:flex;align-items:center;gap:8px;padding:5px 2px;border-bottom:1px solid rgba(255,255,255,0.04);">';
+    html+='<div style="width:150px;flex-shrink:0;font-size:11px;color:#c8d8e8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+labels[i]+'</div>';
+    html+='<div style="flex:1;background:rgba(255,255,255,0.07);border-radius:3px;height:8px;overflow:hidden;min-width:0;">';
+    html+='<div style="height:100%;width:'+barW+'%;background:'+colors[i]+';border-radius:3px;"></div>';
+    html+='</div>';
+    html+='<div style="width:32px;flex-shrink:0;text-align:right;font-size:13px;font-weight:700;color:#e8edf5;">'+vals[i]+'</div>';
+    html+='<div style="width:30px;flex-shrink:0;text-align:right;font-size:11px;color:#7a94b4;">'+pct+'%</div>';
+    html+='</div>';
   }
-  out+=tag('text',attr('x',cx)+attr('y',cy-4)+attr('fill','#e8edf5')+attr('font-size','18')+attr('font-weight','bold')+attr('text-anchor','middle')+attr('font-family','sans-serif'),total);
-  out+=tag('text',attr('x',cx)+attr('y',cy+12)+attr('fill','#7a94b4')+attr('font-size','8')+attr('text-anchor','middle'),'TOTAL');
-  var svgEl=tag('svg',attr('viewBox','0 0 '+W+' '+H)+attr('xmlns','http://www.w3.org/2000/svg')+attr('style','width:100%;max-width:260px;display:block;margin:0 auto;'),out);
-  var leg='<div style="display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:8px;justify-content:center;">';
-  for(var j=0;j<labels.length;j++){
-    leg+='<div style="display:flex;align-items:center;gap:4px;font-size:10px;color:#7a94b4;"><div style="width:8px;height:8px;border-radius:50%;background:'+colors[j]+';flex-shrink:0;"></div>'+labels[j]+'</div>';
-  }
-  leg+='</div>';
-  document.getElementById(id).innerHTML=svgEl+leg;
+  html+='</div>';
+  document.getElementById(id).innerHTML=html;
 }
 
 var currentEvts=[];
@@ -247,31 +240,31 @@ var allFilteredEvts=[];
 
 function render(evts){
   currentEvts=evts;
-  var co=0,uv=0,tct={},drvSet={};
+  // evts is always coached-only — co = total, uv = not yet viewed
+  var co=evts.length,uv=0,tct={},drvSet={};
   for(var i=0;i<evts.length;i++){
-    var e=evts[i],cv=e['Converted To Coaching'];
-    var coached=(cv==='YES'||cv==='Yes');
-    if(coached){co++;if(!e['Coaching Completed At'])uv++;}
+    var e=evts[i];
+    if(!e['Coaching Completed At'])uv++;
     if(e.Type)tct[e.Type]=(tct[e.Type]||0)+1;
     if(e.Driver)drvSet[e.Driver]=1;
   }
   var dc=Object.keys(drvSet).length;
   var vr=co>0?Math.round((co-uv)/co*100):0;
-  var avg=dc>0?(evts.length/dc).toFixed(1):'--';
+  var avg=dc>0?(co/dc).toFixed(1):'--';
   var topType=null,topCount=0;
   for(var t in tct){if(tct[t]>topCount){topCount=tct[t];topType=t;}}
 
-  // KPI 1 — total events + coached sub
-  document.getElementById('kT').textContent=evts.length;
-  document.getElementById('kpiDateRange').innerHTML='<b>'+co+'</b> coached &middot; <b>'+(co-uv)+'</b> viewed';
+  // KPI 1 — total coached events
+  document.getElementById('kT').textContent=co;
+  document.getElementById('kpiDateRange').innerHTML='<b>'+(co-uv)+'</b> viewed &middot; <b>'+uv+'</b> unviewed';
 
-  // KPI 2 — viewed % big, "X of Y viewed" sub (matches Apple)
+  // KPI 2 — viewed %
   document.getElementById('kU').textContent=vr+'%';
   document.getElementById('kVR').innerHTML='<b>'+(co-uv)+'</b> of '+co+' viewed';
 
-  // KPI 3 — avg events/driver
+  // KPI 3 — avg coached events/driver
   document.getElementById('kA').textContent=avg;
-  document.getElementById('kAS').innerHTML='<b>'+dc+'</b> drivers coached';
+  document.getElementById('kAS').innerHTML='<b>'+dc+'</b> active drivers';
 
   // KPI 4 — event name big, count sub (matches Apple)
   if(topType){
@@ -293,21 +286,15 @@ function render(evts){
   drawBar('barWrap',wkeys,wkeys.map(function(k){return wk[k];}));
 
   var tkeys=Object.keys(tct).sort(function(a,b){return tct[b]-tct[a];});
-  drawDonut('donutWrap',tkeys.map(function(t){return getLabel(t);}),tkeys.map(function(t){return tct[t];}),tkeys.map(function(t){return getColor(t);}));
+  drawTypeList('donutWrap',tkeys.map(function(t){return getLabel(t);}),tkeys.map(function(t){return tct[t];}),tkeys.map(function(t){return getColor(t);}));
 
-  // Driver table — matches Apple: Driver / Total / Viewed columns
+  // Driver table — evts is coached-only so total = coached events for that driver
   var dd={};
   for(var i=0;i<evts.length;i++){
     var e=evts[i];if(!e.Driver)continue;
-    if(!dd[e.Driver])dd[e.Driver]={total:0,coached:0,viewed:0,unviewed:0};
+    if(!dd[e.Driver])dd[e.Driver]={total:0,unviewed:0};
     dd[e.Driver].total++;
-    var cv=e['Converted To Coaching'];
-    var coached=(cv==='YES'||cv==='Yes');
-    if(coached){
-      dd[e.Driver].coached++;
-      if(e['Coaching Completed At'])dd[e.Driver].viewed++;
-      else dd[e.Driver].unviewed++;
-    }
+    if(!e['Coaching Completed At'])dd[e.Driver].unviewed++;
   }
   var rows=Object.keys(dd).sort(function(a,b){return dd[b].total-dd[a].total;});
   var ths='font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#7a94b4;padding:8px 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.08);';
@@ -335,16 +322,23 @@ function render(evts){
     row.addEventListener('click',function(){showDriverModal(this.getAttribute('data-name'));});
   });
 
-  // Event log — matches Apple: EventType bold + Driver · Date inline, 14px
-  var sorted=evts.slice().sort(function(a,b){return(b._d||0)-(a._d||0);}).slice(0,50);
+  // Event log — only show coached events, most recent first
+  var coached_evts=evts.filter(function(e){var cv=e['Converted To Coaching'];return cv==='YES'||cv==='Yes';});
+  var sorted=coached_evts.slice().sort(function(a,b){return(b._d||0)-(a._d||0);}).slice(0,50);
   var lh='';
   sorted.forEach(function(e){
     var ds=e._d?e._d.toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+    var isViewed=!!e['Coaching Completed At'];
+    var statusCol=isViewed?'#3db87a':'#f5a623';
+    var statusTxt=isViewed?'Viewed':'Unviewed';
     lh+='<div style="display:flex;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04);">';
-    lh+='<div style="font-size:14px;font-weight:600;white-space:nowrap;">'+getLabel(e.Type||'Unknown')+'</div>';
-    lh+='<div style="font-size:14px;color:#7a94b4;margin-left:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(e.Driver||'Unidentified')+' &middot; '+ds+'</div>';
+    lh+='<div style="width:8px;height:8px;border-radius:50%;background:'+getColor(e.Type||'Unknown')+';flex-shrink:0;margin-right:8px;"></div>';
+    lh+='<div style="font-size:13px;font-weight:600;white-space:nowrap;">'+getLabel(e.Type||'Unknown')+'</div>';
+    lh+='<div style="font-size:13px;color:#7a94b4;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">'+(e.Driver||'Unidentified')+' &middot; '+ds+'</div>';
+    lh+='<div style="font-size:10px;color:'+statusCol+';flex-shrink:0;margin-left:6px;font-weight:600;">'+statusTxt+'</div>';
     lh+='</div>';
   });
+  if(!lh)lh='<p style="text-align:center;padding:24px;color:#7a94b4;font-size:12px;">No coached events in this period</p>';
   document.getElementById('evLog').innerHTML=lh;
 }
 function dedupKey(e){
@@ -376,11 +370,14 @@ function saveStored(evts){
 
 
 function renderWithDateFilter(allEvts){
-  var end=new Date();end.setDate(end.getDate()-3);
-  var start=new Date(end);start.setDate(start.getDate()-30);
-  // Filter to the 30-day window only — coaching status filtering happens inside render()/applyFilter()
+  // 3-day grace period: end = today minus 3 days, start = end minus 30 days
+  var end=new Date();end.setHours(23,59,59,0);end.setDate(end.getDate()-3);
+  var start=new Date(end);start.setHours(0,0,0,0);start.setDate(start.getDate()-30);
+  // Base dataset: coached events only, within the date window
   var tr=allEvts.filter(function(e){
-    return e._d&&e._d>=start&&e._d<=end;
+    var cv=e['Converted To Coaching'];
+    var isCoached=(cv==='YES'||cv==='Yes');
+    return isCoached&&e._d&&e._d>=start&&e._d<=end;
   });
   allFilteredEvts=tr;
   applyFilter();
@@ -390,13 +387,14 @@ function renderWithDateFilter(allEvts){
 }
 
 function applyFilter(){
+  // allFilteredEvts is already coached-only for the date window
   var evts;
-  if(currentFilter==='Coached'){
-    evts=allFilteredEvts.filter(function(e){var cv=e['Converted To Coaching'];return cv==='YES'||cv==='Yes';});
-  } else if(currentFilter==='Needs Coaching'){
-    evts=allFilteredEvts.filter(function(e){var cv=e['Converted To Coaching'];return (cv==='YES'||cv==='Yes')&&!e['Coaching Completed At'];});
+  if(currentFilter==='Viewed'){
+    evts=allFilteredEvts.filter(function(e){return !!e['Coaching Completed At'];});
+  } else if(currentFilter==='Unviewed'){
+    evts=allFilteredEvts.filter(function(e){return !e['Coaching Completed At'];});
   } else {
-    evts=allFilteredEvts;
+    evts=allFilteredEvts; // all coached events
   }
   render(evts);
 }
