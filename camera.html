@@ -128,15 +128,7 @@ html, body { background: #0f1f3d; color: #e8edf5; font-family: 'Barlow', sans-se
   </div>
 
   <div class="charts-row">
-    <div class="card">
-      <div class="ctitle">Weekly Events by Driver</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-        <div><div id="wkLabel0" style="font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:#7a94b4;margin-bottom:5px;font-family:'Barlow Condensed',sans-serif;">Week 1</div><div id="weekBar0"></div></div>
-        <div><div id="wkLabel1" style="font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:#7a94b4;margin-bottom:5px;font-family:'Barlow Condensed',sans-serif;">Week 2</div><div id="weekBar1"></div></div>
-        <div><div id="wkLabel2" style="font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:#7a94b4;margin-bottom:5px;font-family:'Barlow Condensed',sans-serif;">Week 3</div><div id="weekBar2"></div></div>
-        <div><div id="wkLabel3" style="font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:#7a94b4;margin-bottom:5px;font-family:'Barlow Condensed',sans-serif;">Week 4</div><div id="weekBar3"></div></div>
-      </div>
-    </div>
+    <div class="card"><div class="ctitle">Events Over Time (Weekly)</div><div id="barWrap"></div></div>
     <div class="card"><div class="ctitle">Events by Type</div><div id="donutWrap"></div></div>
   </div>
 
@@ -293,11 +285,16 @@ function attr(n,v){return ' '+n+'="'+v+'"';}
 function tag(t,attrs,inner){return '<'+t+attrs+'>'+(inner||'')+'</'+t+'>';}
 function stag(t,attrs){return '<'+t+attrs+'/>';}
 
-function drawBar(id,labels,vals){
-  var W=320,H=155,PL=26,PR=8,PT=8,PB=38;
-  var cw=W-PL-PR,ch=H-PT-PB;
+function drawBar(id,labels,vals,stackData,drvColors){
+  var W=320,H=175,PL=26,PR=8,PT=8,PB=38,LEGPAD=24;
+  var cw=W-PL-PR,ch=H-PT-PB-LEGPAD;
   var maxv=1;
-  for(var i=0;i<vals.length;i++)if(vals[i]>maxv)maxv=vals[i];
+  if(stackData&&stackData.length){
+    for(var i=0;i<labels.length;i++){
+      var col=0;for(var d=0;d<stackData.length;d++)col+=stackData[d].weeks[i]||0;
+      if(col>maxv)maxv=col;
+    }
+  }else{for(var i=0;i<vals.length;i++)if(vals[i]>maxv)maxv=vals[i];}
   var n=labels.length||1,slotW=cw/n,bw=Math.max(2,slotW*0.65);
   var out='';
   for(var g=0;g<=4;g++){
@@ -307,11 +304,35 @@ function drawBar(id,labels,vals){
   }
   var step=Math.ceil(n/12);
   for(var i=0;i<n;i++){
-    var bh=vals[i]/maxv*ch,bx=PL+(i*slotW)+(slotW-bw)/2,by=PT+ch-bh;
-    out+=stag('rect',attr('x',bx)+attr('y',by)+attr('width',bw)+attr('height',bh)+attr('fill','rgba(232,160,32,0.85)')+attr('rx','2'));
+    var bx=PL+(i*slotW)+(slotW-bw)/2;
+    if(stackData&&stackData.length){
+      var yOff=PT+ch;
+      for(var d=0;d<stackData.length;d++){
+        var sv=stackData[d].weeks[i]||0;if(!sv)continue;
+        var sbh=sv/maxv*ch;yOff-=sbh;
+        out+=stag('rect',attr('x',bx)+attr('y',yOff)+attr('width',bw)+attr('height',sbh)+attr('fill',drvColors[d]||'rgba(232,160,32,0.85)')+attr('rx','1'));
+        if(sbh>11){
+          var nm=stackData[d].name.split(' ')[0];
+          out+=tag('text',attr('x',bx+bw/2)+attr('y',yOff+sbh/2+3)+attr('fill','rgba(255,255,255,0.88)')+attr('font-size','6')+attr('text-anchor','middle')+attr('font-family','sans-serif'),nm);
+        }
+      }
+    }else{
+      var bh=vals[i]/maxv*ch,by=PT+ch-bh;
+      out+=stag('rect',attr('x',bx)+attr('y',by)+attr('width',bw)+attr('height',bh)+attr('fill','rgba(232,160,32,0.85)')+attr('rx','2'));
+    }
     if(i%step===0){
-      var lx=bx+bw/2,ly=H-PB+10;
+      var lx=bx+bw/2,ly=H-PB-LEGPAD+10;
       out+=tag('text',attr('x',lx)+attr('y',ly)+attr('fill','#7a94b4')+attr('font-size','7')+attr('text-anchor','middle')+attr('transform','rotate(-40 '+lx+' '+ly+')'),labels[i]);
+    }
+  }
+  if(stackData&&stackData.length){
+    var lx=PL,ly=H-8;
+    for(var d=0;d<Math.min(stackData.length,8);d++){
+      var nm=stackData[d].name.length>14?stackData[d].name.slice(0,13)+String.fromCharCode(8230):stackData[d].name;
+      out+=stag('rect',attr('x',lx)+attr('y',ly-7)+attr('width',7)+attr('height',7)+attr('fill',drvColors[d])+attr('rx','1'));
+      out+=tag('text',attr('x',lx+9)+attr('y',ly)+attr('fill','#7a94b4')+attr('font-size','6.5')+attr('font-family','sans-serif'),nm);
+      lx+=(nm.length*3.8+16);
+      if(lx>W-40){lx=PL;ly+=9;}
     }
   }
   document.getElementById(id).innerHTML=tag('svg',attr('viewBox','0 0 '+W+' '+H)+attr('xmlns','http://www.w3.org/2000/svg')+attr('style','width:100%;display:block;'),out);
@@ -344,29 +365,6 @@ function drawDonut(id,labels,vals,colors){
   }
   leg+='</div>';
   document.getElementById(id).innerHTML=svgEl+leg;
-}
-
-function drawBarH(id,labels,vals){
-  var rowH=24,PT=4,PB=4,PL=85,PR=32,W=260;
-  var n=labels.length;
-  var el=document.getElementById(id);
-  if(!el)return;
-  if(!n){el.innerHTML='<p style="font-size:10px;color:#7a94b4;text-align:center;padding:10px 0;">No events</p>';return;}
-  var H=PT+n*rowH+PB;
-  var maxv=1;
-  for(var i=0;i<vals.length;i++)if(vals[i]>maxv)maxv=vals[i];
-  var cw=W-PL-PR;
-  var out='';
-  for(var i=0;i<labels.length;i++){
-    var y=PT+i*rowH;
-    var bw=Math.max(2,vals[i]/maxv*cw);
-    var bh=rowH-6;
-    out+=stag('rect',attr('x',PL)+attr('y',y+3)+attr('width',bw)+attr('height',bh)+attr('fill','rgba(232,160,32,0.85)')+attr('rx','2'));
-    var nm=labels[i].length>13?labels[i].slice(0,12)+'…':labels[i];
-    out+=tag('text',attr('x',PL-4)+attr('y',y+rowH/2+4)+attr('fill','#e8edf5')+attr('font-size','8')+attr('text-anchor','end')+attr('font-family','sans-serif'),nm);
-    out+=tag('text',attr('x',PL+bw+4)+attr('y',y+rowH/2+4)+attr('fill','#e8a020')+attr('font-size','8')+attr('font-weight','bold'),vals[i]);
-  }
-  el.innerHTML=tag('svg',attr('viewBox','0 0 '+W+' '+H)+attr('xmlns','http://www.w3.org/2000/svg')+attr('style','width:100%;display:block;'),out);
 }
 
 var currentEvts=[];
@@ -423,36 +421,57 @@ function render(evts){
     document.getElementById('kMT').innerHTML='<b>'+topCount+'</b> events';
   }
 
-  // 4 weekly driver charts — one per 7-day bucket in the 28-day window
-  var fmtWk=function(x){return x.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
-  for(var wi=0;wi<4;wi++){
-    (function(wi){
-      var wkNames=[],wkVals=[],wkLabel='Week '+(wi+1);
-      if(windowStartD){
-        var wkStart=new Date(windowStartD.getFullYear(),windowStartD.getMonth(),windowStartD.getDate());
-        wkStart.setDate(wkStart.getDate()+wi*7);
-        var wkEnd=new Date(wkStart.getTime());
-        wkEnd.setDate(wkEnd.getDate()+6);
-        wkEnd.setHours(23,59,59,999);
-        wkLabel=fmtWk(wkStart)+' – '+fmtWk(wkEnd);
-        var dCts={};
-        evts.forEach(function(e){
-          if(!e._d)return;
-          var evMid=new Date(e._d.getFullYear(),e._d.getMonth(),e._d.getDate());
-          if(evMid<wkStart||evMid>wkEnd)return;
-          var d=e.Driver||'Unidentified';
-          dCts[d]=(dCts[d]||0)+1;
-        });
-        wkNames=Object.keys(dCts).sort(function(a,b){return dCts[b]-dCts[a];});
-        wkVals=wkNames.map(function(n){return dCts[n];});
-        var total=wkVals.reduce(function(s,v){return s+v;},0);
-        if(total)wkLabel+=' ('+total+')';
-      }
-      var lbl=document.getElementById('wkLabel'+wi);
-      if(lbl)lbl.textContent=wkLabel;
-      drawBarH('weekBar'+wi,wkNames,wkVals);
-    })(wi);
+  // Bar chart by 7-day bucket, stacked by driver
+  var wk={},wkeys=[],drvWeeks={};
+  if(windowStartD&&windowEndD){
+    var startMid=new Date(windowStartD.getFullYear(),windowStartD.getMonth(),windowStartD.getDate());
+    var stopMid=new Date(windowEndD.getFullYear(),windowEndD.getMonth(),windowEndD.getDate());
+    var cursor=new Date(startMid.getTime());
+    while(cursor<=stopMid){
+      var mo2=cursor.getMonth()+1,dy2=cursor.getDate();
+      var k2=(mo2<10?'0':'')+mo2+'/'+(dy2<10?'0':'')+dy2;
+      wkeys.push(k2);wk[k2]=0;
+      cursor.setDate(cursor.getDate()+7);
+    }
+    var msPerDay=86400000;
+    evts.forEach(function(e){
+      if(!e._d)return;
+      var evMid=new Date(e._d.getFullYear(),e._d.getMonth(),e._d.getDate());
+      var diffDays=Math.floor((evMid-startMid)/msPerDay);
+      if(diffDays<0)return;
+      var bidx=Math.floor(diffDays/7);
+      if(bidx>=wkeys.length)return;
+      wk[wkeys[bidx]]++;
+      var dn=e.Driver||'Unidentified';
+      if(!drvWeeks[dn])drvWeeks[dn]=new Array(wkeys.length).fill(0);
+      drvWeeks[dn][bidx]++;
+    });
+  }else{
+    evts.forEach(function(e){
+      if(!e._d)return;
+      var sun=new Date(e._d.getFullYear(),e._d.getMonth(),e._d.getDate());
+      sun.setDate(sun.getDate()-sun.getDay());
+      var mo=sun.getMonth()+1,dy=sun.getDate();
+      var k=(mo<10?'0':'')+mo+'/'+(dy<10?'0':'')+dy;
+      wk[k]=(wk[k]||0)+1;
+      var dn=e.Driver||'Unidentified';
+      if(!drvWeeks[dn])drvWeeks[dn]={};
+      drvWeeks[dn][k]=(drvWeeks[dn][k]||0)+1;
+    });
+    wkeys=Object.keys(wk).sort();
+    var newDW={};
+    Object.keys(drvWeeks).forEach(function(n){newDW[n]=wkeys.map(function(k){return drvWeeks[n][k]||0;});});
+    drvWeeks=newDW;
   }
+  var drvNames=Object.keys(drvWeeks).sort(function(a,b){
+    var ta=drvWeeks[a].reduce(function(s,v){return s+v;},0);
+    var tb=drvWeeks[b].reduce(function(s,v){return s+v;},0);
+    return tb-ta;
+  });
+  var palette=['rgba(232,160,32,0.9)','rgba(61,184,122,0.9)','rgba(82,145,224,0.9)','rgba(224,82,82,0.9)','rgba(168,100,220,0.9)','rgba(80,200,200,0.9)','rgba(240,140,60,0.9)','rgba(180,180,60,0.9)'];
+  var stackData=drvNames.map(function(n){return {name:n,weeks:drvWeeks[n]};});
+  var drvColors=drvNames.map(function(n,i){return palette[i%palette.length];});
+  drawBar('barWrap',wkeys,wkeys.map(function(k){return wk[k];}),stackData,drvColors);
 
   var tkeys=Object.keys(tct).sort(function(a,b){return tct[b]-tct[a];});
   drawDonut('donutWrap',tkeys.map(function(t){return getLabel(t);}),tkeys.map(function(t){return tct[t];}),tkeys.map(function(t){return getColor(t);}));
@@ -792,7 +811,7 @@ document.getElementById('clearBtn').addEventListener('click', function() {
   document.getElementById('kAS').textContent = 'drivers coached';
   document.getElementById('kMC').textContent = '--';
   document.getElementById('kMT').textContent = '--';
-  for(var _ci=0;_ci<4;_ci++){var _ce=document.getElementById('weekBar'+_ci);if(_ce)_ce.innerHTML='';var _cl=document.getElementById('wkLabel'+_ci);if(_cl)_cl.textContent='Week '+(_ci+1);}
+  document.getElementById('barWrap').innerHTML = '';
   document.getElementById('donutWrap').innerHTML = '';
   document.getElementById('drvWrap').innerHTML = '<p style="text-align:center;padding:24px;color:#7a94b4;font-size:12px;">Import a file to see data</p>';
   document.getElementById('evLog').innerHTML = '<p style="text-align:center;padding:24px;color:#7a94b4;font-size:12px;">Import a file to see events</p>';
