@@ -285,16 +285,11 @@ function attr(n,v){return ' '+n+'="'+v+'"';}
 function tag(t,attrs,inner){return '<'+t+attrs+'>'+(inner||'')+'</'+t+'>';}
 function stag(t,attrs){return '<'+t+attrs+'/>';}
 
-function drawBar(id,labels,vals,stackData,drvColors){
-  var W=320,H=175,PL=26,PR=8,PT=8,PB=38,LEGPAD=24;
-  var cw=W-PL-PR,ch=H-PT-PB-LEGPAD;
+function drawBar(id,labels,vals){
+  var W=320,H=155,PL=26,PR=8,PT=8,PB=38;
+  var cw=W-PL-PR,ch=H-PT-PB;
   var maxv=1;
-  if(stackData&&stackData.length){
-    for(var i=0;i<labels.length;i++){
-      var col=0;for(var d=0;d<stackData.length;d++)col+=stackData[d].weeks[i]||0;
-      if(col>maxv)maxv=col;
-    }
-  }else{for(var i=0;i<vals.length;i++)if(vals[i]>maxv)maxv=vals[i];}
+  for(var i=0;i<vals.length;i++)if(vals[i]>maxv)maxv=vals[i];
   var n=labels.length||1,slotW=cw/n,bw=Math.max(2,slotW*0.65);
   var out='';
   for(var g=0;g<=4;g++){
@@ -304,35 +299,11 @@ function drawBar(id,labels,vals,stackData,drvColors){
   }
   var step=Math.ceil(n/12);
   for(var i=0;i<n;i++){
-    var bx=PL+(i*slotW)+(slotW-bw)/2;
-    if(stackData&&stackData.length){
-      var yOff=PT+ch;
-      for(var d=0;d<stackData.length;d++){
-        var sv=stackData[d].weeks[i]||0;if(!sv)continue;
-        var sbh=sv/maxv*ch;yOff-=sbh;
-        out+=stag('rect',attr('x',bx)+attr('y',yOff)+attr('width',bw)+attr('height',sbh)+attr('fill',drvColors[d]||'rgba(232,160,32,0.85)')+attr('rx','1'));
-        if(sbh>11){
-          var nm=stackData[d].name.split(' ')[0];
-          out+=tag('text',attr('x',bx+bw/2)+attr('y',yOff+sbh/2+3)+attr('fill','rgba(255,255,255,0.88)')+attr('font-size','6')+attr('text-anchor','middle')+attr('font-family','sans-serif'),nm);
-        }
-      }
-    }else{
-      var bh=vals[i]/maxv*ch,by=PT+ch-bh;
-      out+=stag('rect',attr('x',bx)+attr('y',by)+attr('width',bw)+attr('height',bh)+attr('fill','rgba(232,160,32,0.85)')+attr('rx','2'));
-    }
+    var bh=vals[i]/maxv*ch,bx=PL+(i*slotW)+(slotW-bw)/2,by=PT+ch-bh;
+    out+=stag('rect',attr('x',bx)+attr('y',by)+attr('width',bw)+attr('height',bh)+attr('fill','rgba(232,160,32,0.85)')+attr('rx','2'));
     if(i%step===0){
-      var lx=bx+bw/2,ly=H-PB-LEGPAD+10;
+      var lx=bx+bw/2,ly=H-PB+10;
       out+=tag('text',attr('x',lx)+attr('y',ly)+attr('fill','#7a94b4')+attr('font-size','7')+attr('text-anchor','middle')+attr('transform','rotate(-40 '+lx+' '+ly+')'),labels[i]);
-    }
-  }
-  if(stackData&&stackData.length){
-    var lx=PL,ly=H-8;
-    for(var d=0;d<Math.min(stackData.length,8);d++){
-      var nm=stackData[d].name.length>14?stackData[d].name.slice(0,13)+String.fromCharCode(8230):stackData[d].name;
-      out+=stag('rect',attr('x',lx)+attr('y',ly-7)+attr('width',7)+attr('height',7)+attr('fill',drvColors[d])+attr('rx','1'));
-      out+=tag('text',attr('x',lx+9)+attr('y',ly)+attr('fill','#7a94b4')+attr('font-size','6.5')+attr('font-family','sans-serif'),nm);
-      lx+=(nm.length*3.8+16);
-      if(lx>W-40){lx=PL;ly+=9;}
     }
   }
   document.getElementById(id).innerHTML=tag('svg',attr('viewBox','0 0 '+W+' '+H)+attr('xmlns','http://www.w3.org/2000/svg')+attr('style','width:100%;display:block;'),out);
@@ -421,32 +392,35 @@ function render(evts){
     document.getElementById('kMT').innerHTML='<b>'+topCount+'</b> events';
   }
 
-  // Bar chart by 7-day bucket, stacked by driver
-  var wk={},wkeys=[],drvWeeks={};
+  // Bar chart by 7-day bucket, anchored to the window start so labels
+  // exactly match the 28-day window (4 weekly buckets, e.g. 04/16, 04/23, 04/30, 05/07
+  // — never an out-of-window Sunday). The last bucket may be partial.
+  var wk={}, wkeys=[];
   if(windowStartD&&windowEndD){
     var startMid=new Date(windowStartD.getFullYear(),windowStartD.getMonth(),windowStartD.getDate());
-    var stopMid=new Date(windowEndD.getFullYear(),windowEndD.getMonth(),windowEndD.getDate());
+    var stopMid =new Date(windowEndD.getFullYear(),  windowEndD.getMonth(),  windowEndD.getDate());
+    // Pre-create one bucket per 7-day chunk
     var cursor=new Date(startMid.getTime());
     while(cursor<=stopMid){
-      var mo2=cursor.getMonth()+1,dy2=cursor.getDate();
+      var mo2=cursor.getMonth()+1, dy2=cursor.getDate();
       var k2=(mo2<10?'0':'')+mo2+'/'+(dy2<10?'0':'')+dy2;
-      wkeys.push(k2);wk[k2]=0;
+      wkeys.push(k2);
+      wk[k2]=0;
       cursor.setDate(cursor.getDate()+7);
     }
+    // Drop each event into its anchored bucket
     var msPerDay=86400000;
     evts.forEach(function(e){
       if(!e._d)return;
       var evMid=new Date(e._d.getFullYear(),e._d.getMonth(),e._d.getDate());
       var diffDays=Math.floor((evMid-startMid)/msPerDay);
       if(diffDays<0)return;
-      var bidx=Math.floor(diffDays/7);
-      if(bidx>=wkeys.length)return;
-      wk[wkeys[bidx]]++;
-      var dn=e.Driver||'Unidentified';
-      if(!drvWeeks[dn])drvWeeks[dn]=new Array(wkeys.length).fill(0);
-      drvWeeks[dn][bidx]++;
+      var idx=Math.floor(diffDays/7);
+      if(idx>=wkeys.length)return;
+      wk[wkeys[idx]]++;
     });
-  }else{
+  } else {
+    // Fallback (no window set yet): keep old Sunday grouping
     evts.forEach(function(e){
       if(!e._d)return;
       var sun=new Date(e._d.getFullYear(),e._d.getMonth(),e._d.getDate());
@@ -454,24 +428,10 @@ function render(evts){
       var mo=sun.getMonth()+1,dy=sun.getDate();
       var k=(mo<10?'0':'')+mo+'/'+(dy<10?'0':'')+dy;
       wk[k]=(wk[k]||0)+1;
-      var dn=e.Driver||'Unidentified';
-      if(!drvWeeks[dn])drvWeeks[dn]={};
-      drvWeeks[dn][k]=(drvWeeks[dn][k]||0)+1;
     });
     wkeys=Object.keys(wk).sort();
-    var newDW={};
-    Object.keys(drvWeeks).forEach(function(n){newDW[n]=wkeys.map(function(k){return drvWeeks[n][k]||0;});});
-    drvWeeks=newDW;
   }
-  var drvNames=Object.keys(drvWeeks).sort(function(a,b){
-    var ta=drvWeeks[a].reduce(function(s,v){return s+v;},0);
-    var tb=drvWeeks[b].reduce(function(s,v){return s+v;},0);
-    return tb-ta;
-  });
-  var palette=['rgba(232,160,32,0.9)','rgba(61,184,122,0.9)','rgba(82,145,224,0.9)','rgba(224,82,82,0.9)','rgba(168,100,220,0.9)','rgba(80,200,200,0.9)','rgba(240,140,60,0.9)','rgba(180,180,60,0.9)'];
-  var stackData=drvNames.map(function(n){return {name:n,weeks:drvWeeks[n]};});
-  var drvColors=drvNames.map(function(n,i){return palette[i%palette.length];});
-  drawBar('barWrap',wkeys,wkeys.map(function(k){return wk[k];}),stackData,drvColors);
+  drawBar('barWrap',wkeys,wkeys.map(function(k){return wk[k];}));
 
   var tkeys=Object.keys(tct).sort(function(a,b){return tct[b]-tct[a];});
   drawDonut('donutWrap',tkeys.map(function(t){return getLabel(t);}),tkeys.map(function(t){return tct[t];}),tkeys.map(function(t){return getColor(t);}));
